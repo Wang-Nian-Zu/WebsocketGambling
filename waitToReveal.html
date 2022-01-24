@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>等待莊家開獎...</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <style>
+		#main{
+            text-align: center;
+            width: 600px;
+            height: 250px;
+			position: absolute;
+			padding-top: 30px;
+        }
+		#title{
+			text-align: center;
+            width: 500px;
+            height: 100px;
+			position: absolute;
+			padding-top: 30px;
+		}
+        #bg{
+            background-image:url(images/waitToBetbg.png);
+			background-size:1540px 740px;
+        }
+    </style>
+
+	<script type="text/javascript">
+		var w = window.innerWidth;
+    	var h = window.innerHeight;
+   		var login , title;
+    	window.onload=function() {
+        	main = document.getElementById("main");
+        	main.style.left = (w-600)*0.5 + "px";
+        	main.style.top = (h-380)*0.5 + "px";
+			title = document.getElementById("title");
+			title.style.left = (w-500)*0.5 + "px";
+			title.style.top = (h-600)*0.5 + "px";
+    	};
+	</script>
+
+    <script>
+       var OriginalMoney;
+       $(function getBetInfo(){      
+            fetch("GAMControlAjex.php?act=getBetInfo")
+            .then(function(res){
+                return res.json();
+            })		
+            .then(function(json) {
+                if(json){
+                    json2table(json,"main"); //把資料傳入此function，之後放到div(main頁面)
+                    checkBetisNull() ; //先檢查Bet還在不在
+                }
+            })
+        })
+        function json2table(json,divID) {
+            let tableStr = "<h3><font color = 'green'><b>押注資訊</b></font></h3><table  class='table'>";
+			tableStr += "<thead class='thead-dark'><tr>";
+			tableStr +=	" <th scope='col'>房號</th><th scope='col'>玩家名稱</th> <th scope='col'>押注點數</th> <th scope='col'>押注金額</th>";
+            tableStr += " </tr></thead><tbody>";
+            for(let row of json){ //把json的內容變成html的表格元件
+                tableStr += "<tr><th scope='row'>"+ row['roomNum'];
+                tableStr += "</th><td>" + row['username'];
+                tableStr += "</th><td>" + row['guessNum'];
+                tableStr += "</th><td>" + row['betMoney'];
+                tableStr += "</td></tr>";
+            }
+            tableStr += "</tbody></table>";
+            document.getElementById(divID).innerHTML = tableStr;
+           
+        }   
+        function checkPlayerResult(){ //檢查現在是不是開獎了
+            fetch("GAMControlAjex.php?act=checkRoomstatus")
+            .then(function(res){
+                return res.json();
+            })
+            .then(function(json){  
+                for(let row of json){
+                    if(row['status'] == "close"){
+                        printPlayerResult();
+                    }else{
+                        myOriginalmoney();
+                    }
+                }
+            })
+        }
+        function printPlayerResult(){ //印出該玩家的前後金額
+            checkBetisNull();
+            fetch("GAMControlAjex.php?act=getRevealResult")
+            .then(function(res){
+                return res.json();
+            })
+            .then(function(json) {
+                if(json){
+                    let resultTitle = "<h2><font color = 'white'>開獎結果</font></h2>";
+                    let resultStr = "<table  class='table'><thead class='thead-dark'><tr>";
+                    resultStr += "<th scope='col'>原本的錢</th><th scope='col'>計算後的錢</th><th scope='col'>-</th>";
+                    resultStr += " </tr></thead><tbody>";
+                    for(let row of json){ //把json的內容變成html的表格元件
+                        resultStr += "<tr><td>" + row['BeforeMoney'];
+                        resultStr += "</td><td>" + row['AfterMoney'];
+                        if(parseInt(row['BeforeMoney']) > parseInt(row['AfterMoney'])){
+                            if(parseInt(row['AfterMoney']) == 0){
+                                resultStr += "</td><td><font color = 'blue'><b>輸到脫褲子XD(破產)</b></font>";
+                            }else{
+                                resultStr += "</td><td><font color = 'blue'><b>輸</b></font>";
+                            }
+                        }else{
+                            resultStr += "</td><td><font color = 'red'><b>贏</b></font>";
+                        }
+                        resultStr += "</td></tr>";
+                    }
+                    resultStr += "</tbody></table>";
+                    resultStr += "<button type='button' class='btn btn-success btn-lg btn-block' onclick = 'returnMain()'>確定</button>";
+                    document.getElementById("title").innerHTML = resultTitle;
+                    document.getElementById("main").innerHTML = resultStr;
+                }
+            })
+        }
+        function myOriginalmoney(){ //找到我的原始金額
+            fetch("GAMControlAjex.php?act=getOriginalMoney")
+            .then(function(res){
+                if(res){
+                    OriginalMoney = res;
+                }
+            })
+        }
+        var isnull;
+        function checkBetisNull(){
+            fetch("GAMControlAjex.php?act=checkBetisNull")
+            .then(function(res){
+                if(res){
+                    return res.json();
+                }
+            })
+            .then(function(json){
+                if(json){
+                    for(let row of json){
+                        if(row['isNull'] == "havenoValue"){ //如果Bet不再了
+                            alert('此房間已經不存在');
+                            location.href = 'mainUI.html'; //將玩家轉址到大廳
+                        }else{ //如果資料庫中玩家的Bet還在
+                            checkPlayerResult(); //檢查莊家是否有開獎
+                        }
+                    }
+                }
+            })
+        }
+        function returnMain(){
+            location.href = "mainUI.html";
+        } 
+    </script>
+
+ </head>
+  <body id="bg"> <!--網頁的主要頁面-->
+
+	<div id = "title">
+        <h1><font color = "white">等待莊家開獎...</font></h1>
+    </div>
+		
+	<div id = "main" style = "background-color: rgb(154, 209, 159);"></div> 
+</body>
+</html>
